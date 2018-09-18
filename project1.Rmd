@@ -1,0 +1,193 @@
+---
+title: "BIOS 611 Project 1"
+author: "Marissa Ashner"
+date: "9/24/2018"
+output: html_document
+---
+
+This project makes use of the `dplyr` and `ggplot2` libraries in R to manipulate and visualize different aspects of four datasets. The datasets were chosen from the existing data in R: `CO2`, `UKLungDeaths`, `sleep`, and `infert`.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+data("CO2")
+data("UKLungDeaths")
+data("sleep")
+data("infert")
+```
+
+## Dataset 1: CO2
+
+The `CO2` dataset in R is titled *Carbon Dioxide Uptake in Grass Plants*. The dataset has 84 rows and 5 columns from an experiment on the cold tolerance of a grass species. The CO2 uptake from 12 plants were measured at different levels of ambient CO2 concentration. Half of the plants wre from Quebec and half from Mississippi. The first few lines of the dataset are shown in the table below. 
+
+```{r}
+head(CO2) %>% kable(align = c("c", "c"))
+```
+
+### Data Manipulation 
+
+```{r}
+# Filters the dataset by Type and summarises the uptake at each concentration 
+mean_type_q <- CO2 %>% filter(Type == "Quebec") %>% 
+  group_by(conc) %>% 
+  summarise(mean_up = mean(uptake))
+mean_type_m <- CO2 %>% filter(Type == "Mississippi") %>% 
+  group_by(conc) %>% 
+  summarise(mean_up = mean(uptake))
+
+# Filters the dataset by Treatment and summarises the uptake at each concentration 
+mean_treat_un <- CO2 %>% filter(Treatment == "nonchilled") %>% 
+  group_by(conc) %>% 
+  summarise(mean_up = mean(uptake))
+mean_treat <- CO2 %>% filter(Treatment == "chilled") %>% 
+  group_by(conc) %>% 
+  summarise(mean_up = mean(uptake))
+```
+
+### Figures
+
+```{r fig.width=16, fig.height=6}
+# Creates a scatter plot mapping uptake to concentration, and then draws two lines across the graph representing the average uptake for each Type at each concentration. 
+mycolors <- c("darkgreen", "royalblue")
+plot1 <- ggplot() + geom_point(data = CO2, mapping = aes(conc, uptake, color=Type)) + 
+  geom_line(data = mean_type_q, mapping = aes(conc, mean_up), color = "darkgreen") + 
+  geom_line(data = mean_type_m, mapping = aes(conc, mean_up), color = "royalblue") + 
+  scale_colour_manual(name = "Type", values = mycolors) + 
+  ggtitle("CO2 Uptake vs. Concentration for different Types of Plants") + 
+  labs(x = "Concentration", y = "CO2 Uptake")
+
+# Creates a scatter plot mapping uptake to concentration, and then draws two lines across the graph representing the average uptake for each Treatment at each concentration. 
+mycolors2 <- c("purple", "darkorange")
+plot2 <- ggplot() + geom_point(data = CO2, mapping = aes(conc, uptake, color=Treatment)) + 
+  geom_line(data = mean_treat, mapping = aes(conc, mean_up), color = "darkorange") + 
+  geom_line(data = mean_treat_un, mapping = aes(conc, mean_up), color = "purple") + 
+  scale_colour_manual(name = "Treatment", values = mycolors2) + 
+  ggtitle("CO2 Uptake vs. Concentration for different Plant Treatments") + 
+  labs(x = "Concentration", y = "CO2 Uptake")
+
+# Places the two plots next to each other for easy visualization 
+cowplot::plot_grid(plot1, plot2, ncol=2)
+```
+
+### Summary 
+The data manipulation that was done created data frames that were useful for making the line plots in the graphs above. Both graphs compare the CO2 uptake and concentration. The first graph is colored by Type, and the lines represent the mean uptake at each concentration for each type. The average CO2 uptake is higher for plants from Quebec than plants from Mississippi. The second graph is colored by Treatment, and the lines represent the mean uptake at each concentration for each treatment. The average CO2 uptake is higher for plants that had the nonchilled treatment. By looking at the individual data points at each concentration, it appears that most all plants from Quebec have higher uptake at every concentration as compared to Mississippi plants. Instead, looking at the treatment distribution, it appears that the chilled points are varied for each concentration, having some plants with higher uptake values than the nonchilled treated plants, even though the average for the nonchilled is consistently higher. While uptake depends on both Type and Treatment, the relationship between uptake and Type appears to be more significant than with Treatment. As a next step, it would be interesting to look at this relationship with plants from more locations, since this seems to have a distinct effect on the CO2 uptake of the plants. 
+
+## Dataset 2: UKLungDeaths
+
+The `UKLungDeaths` dataset in R is titled *Monthly Deaths from Lung Diseases in the UK*. This dataset contains three time series objects giving monthly deaths during the time 1974-1979 from three diseases: bronchitis, emphysema, and asthma. The three time series are called `mdeaths`, `fdeaths`, and `ldeaths`, which describe the monthly deaths of males, females, and both genders, respectively. These datasets each have 72 observations: 12 observations for 6 years. The first few lines of the `mdeaths` dataset are shown in the table below. 
+
+```{r}
+# Converts the data from time series to data frame 
+mdeaths2 <- data.frame(matrix(mdeaths, ncol=frequency(mdeaths), dimnames=dimnames(.preformat.ts(mdeaths))))
+fdeaths2 <- data.frame(matrix(fdeaths, ncol=frequency(fdeaths), dimnames=dimnames(.preformat.ts(fdeaths))))
+ldeaths2 <- data.frame(matrix(ldeaths, ncol=frequency(ldeaths), dimnames=dimnames(.preformat.ts(ldeaths))))
+mdeaths2 %>% kable(align = c("c", "c"))
+```
+
+### Data Manipulation
+
+```{r}
+# Labels each data set by gender, then converts them to "long" datasets
+mdeaths_long <- mdeaths2 %>% rownames_to_column("Year") %>% 
+  mutate(gender = "M") %>% 
+  gather(key = Month, value = Deaths, -Year, -gender)
+
+fdeaths_long <- fdeaths2 %>% rownames_to_column("Year") %>% 
+  mutate(gender = "F") %>% 
+  gather(key = Month, value = Deaths, -Year, -gender)
+
+ldeaths_long <- ldeaths2 %>% rownames_to_column("Year") %>% 
+  mutate(gender = "L") %>% 
+  gather(key = Month, value = Deaths, -Year, -gender)
+
+# Combines two long datasets into one data frame 
+total_deaths <- bind_rows(mdeaths_long, fdeaths_long)
+```
+
+### Figures 
+
+```{r fig.width=16, fig.height=6}
+# Creates two lines which connect the observations for number of deaths per month for each gender
+plot1 <- ggplot(data = total_deaths) + 
+  geom_line(aes(Month, Deaths, group = gender, color = gender)) + 
+  ggtitle("Total Deaths per Month by Gender")
+
+# Creates two lines which connect the observations for number of deaths per month for each year
+plot2 <- ggplot(data = ldeaths_long) + 
+  geom_line(aes(Month, Deaths, group = Year, color = Year)) + 
+  ggtitle("Total Deaths per Month by Year")
+
+# Places the two plots next to each other for easy visualization 
+cowplot::plot_grid(plot1, plot2, ncol=2)
+```
+
+### Summary
+The data manipulation of these datasets combined both of the individual gendered datasets into one, while keeping track of which original dataset each observation came from. The data was also turned into a 'long' dataset for ease of visualization. The figures compare the total deaths from lung disease per month first by gender and then by year. The first figure shows that the number of deaths per month across all years in females are lower than the number of deaths in males. The vertical lines at each month represent the change across years. The deaths in males seem to have a larger variance from year to year than the females, as the deaths range from 1,000 to over 2,000 deaths per month, as opposed to less than 1,000 for females. This variation in per year leads into the second figure, which compares the number of deaths per month by year. It appears that all years have certain months that with higher deaths and others with lower deaths. Most years followed similar patterns, with the expception of 1979, which seems to have patterns opposite of the previous years. For example, the number of deaths in June for 1974-1978 are all under 2,000, but for 1979, it is over 2,500. An interesting next step for this dataset would be to look into factors that could account for why the number of deaths deviated from its usual patterns in 1979 as compared to the previous years. Additionally, a breakdown of which deaths were caused by bronchitis, emphysema, and asthma would be interesting to break down. 
+
+## Dataset 3: sleep 
+
+The `sleep` dataset in R is titled *Student's Sleep Data*. The dataset has 20 rows and 3 columns. These variables include the patient ID, the Drug Given, and the Numeric Increase in Hours of Sleep. The first few lines of the dataset are shown in the table below. 
+
+```{r}
+head(sleep) %>% kable(align = c("c", "c"))
+```
+
+### Data Manipulation  
+
+```{r}
+# Groups the dataset by drug group and summarizes the proportion of patients that had an increase in sleep greater than 1 hour
+table <- sleep %>% group_by(group) %>% summarise(proportion = sum(extra>1)/n())
+kable(table, caption="Proportion of Patients who saw an Increase in Sleep of More than 1 Hour", align = c("c", "c"))
+```
+
+### Figures
+
+```{r, fig.width = 8, fig.height = 5}
+# Creates boxplots for each drug group to look at the distribution for extra hours of sleep gained 
+ggplot(data=sleep) + geom_boxplot(mapping = aes(group, extra)) + 
+  ggtitle("Distribution of Extra Hours of Sleep per Treatment Group") + 
+  labs(x = "Treatment Group", y = "Numeric Increase in Hours of Sleep")
+```
+
+### Summary
+The data manipulation of the`sleep` dataset separates the data by treatment group, and then summarizes the proportion of each treatment group who had an increase in sleep of more than one hour. In the group with drug 1, only 30% of the patients had a sleep increase of more than one hour, while for the drug 2, a much higher proportion of 70% had that increase. This leads to the belief that drug 2 is a more effective soporific drug. The figure confirms this fact by visually comparing the distributions of the two drugs. Specifically, it appears that about 75% of the patients given drug 1 have an increase in sleep less than the median of the increase in sleep for when they were given drug 2. An interesting next step for this data would be to perform some statistical tests to see whether this visual difference in the drug effect on sleep is actually significant.   
+
+## Dataset 4: infert
+
+The `infert` dataset in R is titled *Infertility after Spontaneous and Induced Abortion*. The dataset has 248 rows and 8 columns. The data is from a matched case-control study, and the variables include education, age, parity, number of prior induced abortions, case status, number of prior spontaneous abortions, matched set number, and stratum number. The first few lines of the dataset are shown in the table below. 
+
+```{r}
+head(infert) %>% kable(align = c("c", "c"))
+```
+
+### Data Manipulation 
+
+```{r}
+# Selects certain variables to create a correlation matrix
+infert_new <- infert %>% select(induced, spontaneous, case) 
+infert_corr <- cor(infert_new)
+
+# Turned into a long dataset
+infert_long <- 
+  as.data.frame(infert_corr) %>% rownames_to_column() %>%
+  gather(key = variables, value = correlation, -rowname)
+```
+
+### Figures 
+
+```{r, fig.width = 8, fig.height = 5}
+# Creates a correlation heat map between the different types of abortions and whether or not they were infertile
+ggplot(data = infert_long, mapping = aes(x = rowname, y = variables)) + 
+  geom_tile(mapping = aes(fill = correlation)) + 
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1,1), space = "Lab") +
+  labs(x = "Variable 1", y = "Variable 2") + ggtitle("Comparing Cases of Infertility to Induced and Spontaneous Abortions")
+```
+
+### Summary 
+
+The data manipulation of the `infert` dataset selects specific columns of the data to compare graphically. Then the data is converted into a correlation matrix, and is turned into a 'long' dataset so it is easier to graph. The purpose of this set of manipulations is displayed in the figure. This correlation heat map shows the correlations between case, induced abortions, and spontaneous abortions. The plot shows that there is a slight positive correlation between case and spontaneous abortions, meaning that infertility is associated with more spontaneous abortions in this study. Additionally there is a slight negative correlation between the two types of abortions, meaning those patients with more induced abortions generally had less spontaneous abortions. It appears that infertility has no correlation to the number of induced abortions. An interesting next step for this dataset would be to look at the matchs of cases and controls and see if the relationships found in the heat map could be confounded by another varible like age or education. 
