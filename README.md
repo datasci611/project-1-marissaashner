@@ -1,1 +1,1 @@
-Completed Project: https://cdn.rawgit.com/datasci611/project-1-marissaashner/2cdbabe7/project1.html
+Completed Project: https://rawgit.com/datasci611/project-1-marissaashner/master/project1.html
